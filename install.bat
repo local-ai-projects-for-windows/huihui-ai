@@ -6,9 +6,19 @@ echo ========================================================
 echo [Huihui-AI] Запуск автоматической установки модели...
 echo ========================================================
 
-:: 1. Проверяем, установлена ли Ollama
+:: 1. Проверяем, установлена ли Ollama (в PATH или в стандартной папке Windows)
+set "OLLAMA_BIN="
 where ollama > nul 2>&1
-if %errorlevel% neq 0 (
+if %errorlevel% equ 0 (
+    set "OLLAMA_BIN=ollama"
+) else if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+    set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Ollama"
+    set "OLLAMA_BIN=%LOCALAPPDATA%\Programs\Ollama\ollama.exe"
+)
+
+if defined OLLAMA_BIN (
+    echo [OK] Ollama уже установлена на компьютере. Пропускаем установку.
+) else (
     echo [!] Ollama не найдена. Скачивание установщика...
     curl -L -o "%TEMP%\OllamaSetup.exe" "https://ollama.com"
     if %errorlevel% neq 0 (
@@ -17,12 +27,10 @@ if %errorlevel% neq 0 (
     )
     echo [INFO] Установка Ollama...
     start /wait "" "%TEMP%\OllamaSetup.exe" /VERYSILENT /NORESTART
-    
-    :: Обновляем путь к ollama для текущей сессии
     set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Ollama"
 )
 
-:: 2. Проверяем и запускаем фоновый сервер Ollama
+:: 2. Проверяем и запускаем фоновый сервер Ollama, если не запущен
 tasklist /FI "IMAGENAME eq ollama.exe" 2>NUL | find /I /N "ollama.exe" > NUL
 if %errorlevel% neq 0 (
     echo [INFO] Запуск фонового сервера Ollama...
@@ -30,9 +38,8 @@ if %errorlevel% neq 0 (
     timeout /t 3 /nobreak > nul
 )
 
-:: 3. Скачиваем модель Huihui-AI
-echo [СКАЧИВАНИЕ] Загрузка модели %MODEL_TAG%...
-echo [INFO] Это может занять несколько минут в зависимости от скорости интернета...
+:: 3. Скачиваем модель Huihui-AI (если уже скачана — Ollama просто проверит хэш за 1 секунду)
+echo [СКАЧИВАНИЕ] Проверка / загрузка модели %MODEL_TAG%...
 ollama pull %MODEL_TAG%
 
 if %errorlevel% neq 0 (
@@ -42,5 +49,5 @@ if %errorlevel% neq 0 (
 
 :: 4. Передаём тег модели обратно в Python-лаунчер для активации Web-чата
 echo [MODEL_TAG] %MODEL_TAG%
-echo [ГОТОВО] Модель Huihui-AI успешно установлена и запущена в фоне!
+echo [ГОТОВО] Модель Huihui-AI готова к работе!
 exit /b 0
